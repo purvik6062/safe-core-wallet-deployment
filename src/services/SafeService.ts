@@ -1,0 +1,640 @@
+import Safe from "@safe-global/protocol-kit";
+import { ethers } from "ethers";
+import { v4 as uuidv4 } from "uuid";
+import SafeModel, {
+  ISafe,
+  ISafeDeployment,
+  ISafeConfig,
+  IUserInfo,
+} from "../models/Safe.js";
+import {
+  getNetwork,
+  isNetworkSupported,
+  NetworkKey,
+  NetworkConfig,
+} from "../config/networks.js";
+import logger from "../config/logger.js";
+
+// Interface definitions
+export interface DeploymentConfig {
+  networks?: NetworkKey[];
+  autoExpand?: boolean;
+  description?: string;
+  tags?: string[];
+}
+
+export interface DeploymentResult {
+  networkKey: NetworkKey;
+  chainId: number;
+  address: string;
+  deploymentTxHash?: string;
+  deploymentBlockNumber?: number;
+  deploymentTimestamp: Date;
+  gasUsed?: string;
+  gasPrice?: string;
+  deploymentStatus: "pending" | "deployed" | "failed";
+  explorerUrl?: string;
+  isExisting?: boolean;
+  error?: string;
+}
+
+export interface SafeDeploymentResponse {
+  safeId: string;
+  config: ISafeConfig;
+  deployments: Record<string, DeploymentResult>;
+  commonAddress?: string;
+  metadata: any;
+}
+
+export interface GetSafesOptions {
+  status?: "initializing" | "active" | "suspended" | "archived";
+  networks?: string[];
+  limit?: number;
+  offset?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+export interface SearchFilters {
+  userId?: string;
+  status?: string;
+  networks?: string[];
+  tags?: string[];
+  description?: string;
+  address?: string;
+}
+
+export interface NetworkStats {
+  totalSafes: number;
+  deployments: Record<string, number>;
+  mostPopularNetwork: string;
+}
+
+export interface UserStats {
+  totalSafes: number;
+  activeDeployments: number;
+  totalTransactions: number;
+  totalValueTransferred: string;
+  mostUsedNetwork?: string;
+}
+
+/**
+ * SafeService - Core business logic for Safe wallet deployment and management
+ * Handles multi-chain Safe deployments with deterministic addresses
+ */
+class SafeService {
+  private agentPrivateKey: string;
+  private cache: Map<string, any>;
+  private deploymentQueue: Map<string, boolean>;
+
+  constructor() {
+    this.agentPrivateKey = process.env.AGENT_PRIVATE_KEY || "";
+    if (!this.agentPrivateKey) {
+      throw new Error("AGENT_PRIVATE_KEY environment variable is required");
+    }
+
+    this.cache = new Map(); // In-memory cache for frequently accessed data
+    this.deploymentQueue = new Map(); // Track ongoing deployments
+  }
+
+  /**
+   * Deploy Safe wallets across multiple networks for a user
+   */
+  async deploySafesForUser(
+    userInfo: IUserInfo,
+    config: DeploymentConfig = {}
+  ): Promise<SafeDeploymentResponse> {
+    const {
+      networks = ["sepolia", "arbitrum_sepolia"],
+      autoExpand = false,
+      description = "",
+      tags = [],
+    } = config;
+
+    logger.info(
+      `Deploying Safes for user ${userInfo.userId} on networks: ${networks.join(", ")}`
+    );
+
+    // Validate networks
+    for (const networkKey of networks) {
+      if (!isNetworkSupported(networkKey)) {
+        throw new Error(`Unsupported network: ${networkKey}`);
+      }
+    }
+
+    // Generate unique Salt Nonce for deterministic addresses
+    const saltNonce = this.generateSaltNonce(userInfo.userId);
+
+    // Agent wallet that will co-own the Safes
+    const agentWallet = new ethers.Wallet(this.agentPrivateKey);
+
+    // Safe configuration: User + Agent as owners
+    const owners = [userInfo.walletAddress, agentWallet.address];
+    const threshold = 1; // Either user or agent can execute transactions
+
+    const safeConfig: ISafeConfig = {
+      owners,
+      threshold,
+      saltNonce,
+      safeVersion: "1.3.0",
+    };
+
+    // Create Safe record in database
+    const safeId = uuidv4();
+    const safeRecord = new SafeModel({
+      safeId,
+      userInfo: {
+        ...userInfo,
+        preferences: {
+          defaultNetworks: networks,
+          autoExpand,
+          notifications: { email: true, webhook: false },
+        },
+      },
+      config: safeConfig,
+      metadata: {
+        description,
+        tags,
+      },
+    });
+
+    await safeRecord.save();
+    logger.info(`Created Safe record with ID: ${safeId}`);
+
+    // Deploy on each network in parallel
+    const deploymentPromises = networks.map((networkKey) =>
+      this.deploySafeOnNetwork(safeId, networkKey, safeConfig)
+    );
+
+    const results = await Promise.allSettled(deploymentPromises);
+
+    // Process deployment results
+    const deploymentResults: Record<string, DeploymentResult> = {};
+    for (let i = 0; i < results.length; i++) {
+      const networkKey = networks[i];
+      const result = results[i];
+
+      if (result.status === "fulfilled") {
+        deploymentResults[networkKey] = result.value;
+        logger.info(
+          `✅ Safe deployed on ${networkKey}: ${result.value.address}`
+        );
+      } else {
+        deploymentResults[networkKey] = {
+          networkKey,
+          chainId: getNetwork(networkKey).chainId,
+          address: "",
+          deploymentTimestamp: new Date(),
+          deploymentStatus: "failed",
+          error: result.reason.message,
+        };
+        logger.error(
+          `❌ Safe deployment failed on ${networkKey}: ${result.reason.message}`
+        );
+      }
+    }
+
+    // Update Safe record with deployment results
+    await this.updateSafeDeployments(safeId, deploymentResults);
+
+    // Get updated Safe record
+    const updatedSafe = await SafeModel.findOne({ safeId });
+
+    return {
+      safeId,
+      config: safeConfig,
+      deployments: deploymentResults,
+      commonAddress: this.getCommonAddress(deploymentResults),
+      metadata: updatedSafe?.metadata,
+    };
+  }
+
+  /**
+   * Deploy Safe on a specific network
+   */
+  async deploySafeOnNetwork(
+    safeId: string,
+    networkKey: NetworkKey,
+    safeConfig: ISafeConfig
+  ): Promise<DeploymentResult> {
+    const cacheKey = `deployment:${safeId}:${networkKey}`;
+
+    // Check if deployment is already in progress
+    if (this.deploymentQueue.has(cacheKey)) {
+      throw new Error(`Deployment already in progress for ${networkKey}`);
+    }
+
+    this.deploymentQueue.set(cacheKey, true);
+
+    try {
+      const network = getNetwork(networkKey);
+      logger.info(`Deploying Safe on ${network.name} (${networkKey})`);
+
+      // Create provider and deployer wallet
+      const provider = new ethers.JsonRpcProvider(network.rpc);
+      const deployerWallet = new ethers.Wallet(this.agentPrivateKey, provider);
+
+      // Check deployer balance
+      const balance = await deployerWallet.provider!.getBalance(
+        deployerWallet.address
+      );
+      logger.info(
+        `Deployer balance on ${network.name}: ${ethers.formatEther(balance)} ${network.currency.symbol}`
+      );
+
+      if (balance === 0n) {
+        throw new Error(
+          `No ${network.currency.symbol} balance on ${network.name} for deployment`
+        );
+      }
+
+      // Initialize Safe Protocol Kit
+      const safeAccountConfig = {
+        owners: safeConfig.owners,
+        threshold: safeConfig.threshold,
+      };
+
+      const safeDeploymentConfig = {
+        saltNonce: safeConfig.saltNonce,
+      };
+
+      const protocolKit = await Safe.init({
+        provider: network.rpc,
+        signer: this.agentPrivateKey,
+        predictedSafe: { safeAccountConfig, safeDeploymentConfig },
+        isL1SafeSingleton: false,
+      });
+
+      // Get predicted address
+      const predictedAddress = await protocolKit.getAddress();
+      logger.info(`Predicted Safe address: ${predictedAddress}`);
+
+      // Check if already deployed
+      const isAlreadyDeployed = await protocolKit.isSafeDeployed();
+
+      if (isAlreadyDeployed) {
+        logger.info(`Safe already exists at ${predictedAddress}`);
+
+        return {
+          networkKey,
+          chainId: network.chainId,
+          address: predictedAddress,
+          deploymentStatus: "deployed",
+          deploymentTimestamp: new Date(),
+          explorerUrl: `${network.explorer}/address/${predictedAddress}`,
+          isExisting: true,
+        };
+      }
+
+      // Create deployment transaction
+      logger.info("Creating Safe deployment transaction...");
+      const deploymentTx = await protocolKit.createSafeDeploymentTransaction();
+
+      // Estimate gas
+      const gasEstimate = await deployerWallet.estimateGas({
+        to: deploymentTx.to,
+        data: deploymentTx.data,
+        value: deploymentTx.value,
+      });
+
+      logger.info(`Estimated gas: ${gasEstimate.toString()}`);
+
+      // Send transaction
+      const txResponse = await deployerWallet.sendTransaction({
+        to: deploymentTx.to,
+        data: deploymentTx.data,
+        value: deploymentTx.value,
+        gasLimit: gasEstimate,
+      });
+
+      logger.info(`Transaction sent: ${txResponse.hash}`);
+
+      // Wait for confirmation
+      const receipt = await txResponse.wait();
+      if (!receipt) {
+        throw new Error("Transaction receipt not found");
+      }
+
+      logger.info(`Transaction confirmed in block ${receipt.blockNumber}`);
+
+      // Verify deployment
+      const isDeployed = await protocolKit.isSafeDeployed();
+      if (!isDeployed) {
+        throw new Error("Safe deployment verification failed");
+      }
+
+      return {
+        networkKey,
+        chainId: network.chainId,
+        address: predictedAddress,
+        deploymentTxHash: receipt.hash,
+        deploymentBlockNumber: receipt.blockNumber,
+        deploymentTimestamp: new Date(),
+        gasUsed: receipt.gasUsed.toString(),
+        gasPrice: receipt.gasPrice?.toString(),
+        deploymentStatus: "deployed",
+        explorerUrl: `${network.explorer}/address/${predictedAddress}`,
+      };
+    } catch (error) {
+      logger.error(`Safe deployment failed on ${networkKey}:`, error);
+      throw error;
+    } finally {
+      this.deploymentQueue.delete(cacheKey);
+    }
+  }
+
+  /**
+   * Expand Safe to additional networks
+   */
+  async expandSafeToNetworks(
+    safeId: string,
+    newNetworks: NetworkKey[]
+  ): Promise<SafeDeploymentResponse> {
+    const safe = await SafeModel.findOne({ safeId });
+    if (!safe) {
+      throw new Error(`Safe not found: ${safeId}`);
+    }
+
+    // Filter out networks where Safe is already deployed
+    const networksToExpand = newNetworks.filter(
+      (network) => !safe.isDeployedOnNetwork(network)
+    );
+
+    if (networksToExpand.length === 0) {
+      throw new Error("Safe already deployed on all specified networks");
+    }
+
+    // Deploy on new networks
+    const deploymentPromises = networksToExpand.map((networkKey) =>
+      this.deploySafeOnNetwork(safeId, networkKey, safe.config)
+    );
+
+    const results = await Promise.allSettled(deploymentPromises);
+
+    // Process results
+    const newDeployments: Record<string, DeploymentResult> = {};
+    for (let i = 0; i < results.length; i++) {
+      const networkKey = networksToExpand[i];
+      const result = results[i];
+
+      if (result.status === "fulfilled") {
+        newDeployments[networkKey] = result.value;
+        await safe.addDeployment(networkKey, result.value);
+      } else {
+        newDeployments[networkKey] = {
+          networkKey,
+          chainId: getNetwork(networkKey).chainId,
+          address: "",
+          deploymentTimestamp: new Date(),
+          deploymentStatus: "failed",
+          error: result.reason.message,
+        };
+      }
+    }
+
+    return {
+      safeId,
+      config: safe.config,
+      deployments: newDeployments,
+      commonAddress: this.getCommonAddress(newDeployments),
+      metadata: safe.metadata,
+    };
+  }
+
+  /**
+   * Get Safe by ID
+   */
+  async getSafeById(safeId: string): Promise<ISafe> {
+    const safe = await SafeModel.findOne({ safeId });
+    if (!safe) {
+      throw new Error(`Safe not found: ${safeId}`);
+    }
+    return safe;
+  }
+
+  /**
+   * Get Safes by user ID
+   */
+  async getSafesByUserId(
+    userId: string,
+    options: GetSafesOptions = {}
+  ): Promise<ISafe[]> {
+    const {
+      status,
+      networks,
+      limit = 50,
+      offset = 0,
+      sortBy = "metadata.createdAt",
+      sortOrder = "desc",
+    } = options;
+
+    const query: any = { "userInfo.userId": userId };
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (networks && networks.length > 0) {
+      query["metadata.activeNetworks"] = { $in: networks };
+    }
+
+    const sortObj: any = {};
+    sortObj[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+    return await SafeModel.find(query)
+      .sort(sortObj)
+      .skip(offset)
+      .limit(limit)
+      .exec();
+  }
+
+  /**
+   * Get Safe by address
+   */
+  async getSafeByAddress(address: string): Promise<ISafe> {
+    const safe = await SafeModel.findOne({
+      $or: [
+        { "userInfo.walletAddress": address },
+        { [`deployments.${Object.keys(getNetwork)}.address`]: address },
+      ],
+    });
+
+    if (!safe) {
+      throw new Error(`Safe not found for address: ${address}`);
+    }
+
+    return safe;
+  }
+
+  /**
+   * Update Safe metadata
+   */
+  async updateSafeMetadata(
+    safeId: string,
+    metadata: Partial<any>
+  ): Promise<ISafe> {
+    const safe = await SafeModel.findOne({ safeId });
+    if (!safe) {
+      throw new Error(`Safe not found: ${safeId}`);
+    }
+
+    Object.assign(safe.metadata, metadata);
+    return await safe.save();
+  }
+
+  /**
+   * Update Safe deployments
+   */
+  private async updateSafeDeployments(
+    safeId: string,
+    deploymentResults: Record<string, DeploymentResult>
+  ): Promise<void> {
+    const safe = await SafeModel.findOne({ safeId });
+    if (!safe) {
+      throw new Error(`Safe not found: ${safeId}`);
+    }
+
+    for (const [networkKey, result] of Object.entries(deploymentResults)) {
+      if (result.deploymentStatus === "deployed") {
+        await safe.addDeployment(networkKey, result);
+      }
+    }
+  }
+
+  /**
+   * Generate salt nonce for deterministic addresses
+   */
+  private generateSaltNonce(userId: string): string {
+    const timestamp = Date.now().toString();
+    const random = Math.random().toString(36).substring(2);
+    return ethers.keccak256(
+      ethers.toUtf8Bytes(`${userId}-${timestamp}-${random}`)
+    );
+  }
+
+  /**
+   * Get common address from deployments
+   */
+  private getCommonAddress(
+    deployments: Record<string, DeploymentResult>
+  ): string | undefined {
+    const addresses = Object.values(deployments)
+      .filter((d) => d.deploymentStatus === "deployed")
+      .map((d) => d.address);
+
+    return addresses.length > 0 ? addresses[0] : undefined;
+  }
+
+  /**
+   * Get network statistics
+   */
+  async getNetworkStats(): Promise<NetworkStats> {
+    const pipeline = [
+      {
+        $group: {
+          _id: null,
+          totalSafes: { $sum: 1 },
+          allNetworks: { $addToSet: "$metadata.activeNetworks" },
+        },
+      },
+    ];
+
+    const result = await SafeModel.aggregate(pipeline).exec();
+    const stats = result[0] || { totalSafes: 0, allNetworks: [] };
+
+    // Count deployments per network
+    const deployments: Record<string, number> = {};
+    const flatNetworks = stats.allNetworks.flat();
+    for (const network of flatNetworks) {
+      deployments[network] = (deployments[network] || 0) + 1;
+    }
+
+    const mostPopularNetwork =
+      Object.entries(deployments).sort(([, a], [, b]) => b - a)[0]?.[0] || "";
+
+    return {
+      totalSafes: stats.totalSafes,
+      deployments,
+      mostPopularNetwork,
+    };
+  }
+
+  /**
+   * Get user statistics
+   */
+  async getUserStats(userId: string): Promise<UserStats> {
+    const safes = await SafeModel.find({ "userInfo.userId": userId });
+
+    const totalSafes = safes.length;
+    const activeDeployments = safes.reduce(
+      (sum, safe) => sum + safe.getActiveDeployments().length,
+      0
+    );
+
+    const totalTransactions = safes.reduce(
+      (sum, safe) => sum + safe.analytics.totalTransactions,
+      0
+    );
+
+    const totalValueTransferred = safes
+      .reduce(
+        (sum, safe) =>
+          sum + parseFloat(safe.analytics.totalValueTransferred || "0"),
+        0
+      )
+      .toString();
+
+    const mostUsedNetwork = safes
+      .map((safe) => safe.analytics.mostUsedNetwork)
+      .filter(Boolean)[0];
+
+    return {
+      totalSafes,
+      activeDeployments,
+      totalTransactions,
+      totalValueTransferred,
+      mostUsedNetwork,
+    };
+  }
+
+  /**
+   * Search Safes with filters
+   */
+  async searchSafes(filters: SearchFilters = {}): Promise<ISafe[]> {
+    const query: any = {};
+
+    if (filters.userId) {
+      query["userInfo.userId"] = filters.userId;
+    }
+
+    if (filters.status) {
+      query.status = filters.status;
+    }
+
+    if (filters.networks && filters.networks.length > 0) {
+      query["metadata.activeNetworks"] = { $in: filters.networks };
+    }
+
+    if (filters.tags && filters.tags.length > 0) {
+      query["metadata.tags"] = { $in: filters.tags };
+    }
+
+    if (filters.description) {
+      query["metadata.description"] = {
+        $regex: filters.description,
+        $options: "i",
+      };
+    }
+
+    if (filters.address) {
+      query.$or = [
+        { "userInfo.walletAddress": filters.address },
+        { "deployments.address": filters.address },
+      ];
+    }
+
+    return await SafeModel.find(query).exec();
+  }
+}
+
+export default SafeService;

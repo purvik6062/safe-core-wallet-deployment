@@ -1,0 +1,383 @@
+# =============================================================================
+# ENVIRONMENT & CONFIGURATION FILES
+# =============================================================================
+# Environment variables (contains API keys and secrets)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.staging
+test-config.env
+
+# Configuration files with sensitive data
+config.json
+secrets.json
+credentials.json
+
+# =============================================================================
+# NODE.JS & NPM
+# =============================================================================
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# =============================================================================
+# BUILD & DISTRIBUTION
+# =============================================================================
+# Compiled TypeScript
+dist/
+build/
+*.tsbuildinfo
+
+# Webpack bundles
+bundle.js
+bundle.js.map
+
+# PM2 logs
+.pm2/
+
+# =============================================================================
+# LOGGING FILES (AI TRADING SYSTEM SPECIFIC)
+# =============================================================================
+# Main application logs
+logs/
+*.log
+combined.log
+error.log
+exceptions.log
+rejections.log
+
+# AI Trading system specific logs
+agentic-trading.log
+autonomous-trading.log
+price-monitoring.log
+trading-signal-watcher.log
+database.log
+trade-execution.log
+trade-state.log
+
+# Test logs and reports
+test-logs/
+test-report-*.json
+swap-test-*.log
+
+# =============================================================================
+# DATABASE & CACHE FILES
+# =============================================================================
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Redis dumps
+dump.rdb
+
+# MongoDB data
+data/
+mongodb/
+
+# Cache files
+.cache/
+*.cache
+
+# =============================================================================
+# DEVELOPMENT TOOLS & IDEs
+# =============================================================================
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# =============================================================================
+# OPERATING SYSTEM FILES
+# =============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# =============================================================================
+# BLOCKCHAIN & CRYPTO FILES (ENHANCED FOR TRADING SYSTEM)
+# =============================================================================
+# Private keys and wallet files
+*.key
+*.pem
+keystore/
+wallets/
+mnemonic.txt
+private-keys/
+
+# Blockchain data
+blockchain-data/
+geth/
+chaindata/
+
+# Safe transaction data (sensitive)
+safe-deployments/
+safe-transactions/
+
+# Trading strategy data (if contains sensitive info)
+strategies-private/
+trading-data-private/
+
+# =============================================================================
+# AI & ML FILES
+# =============================================================================
+# Model files (if any)
+*.h5
+*.pkl
+*.joblib
+*.model
+checkpoints/
+
+# Training data
+training-data/
+datasets/
+
+# AI model cache
+.transformers/
+.cache/huggingface/
+
+# =============================================================================
+# TESTING FILES (AI TRADING SYSTEM)
+# =============================================================================
+# Test coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Test configuration files with sensitive data
+test-config.env
+test-*.env
+
+# Test results and reports
+test-results/
+test-reports/
+*.test.json
+
+# Swap functionality test files
+test-swap-functionality.js
+test-swap-functionality.ts
+
+# =============================================================================
+# TEMPORARY & BACKUP FILES
+# =============================================================================
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Compressed files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# =============================================================================
+# DEPLOYMENT & DOCKER
+# =============================================================================
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# =============================================================================
+# MONITORING & ANALYTICS (TRADING SYSTEM)
+# =============================================================================
+# Monitoring data
+monitoring/
+metrics/
+traces/
+
+# Analytics data
+analytics/
+*.analytics
+
+# Trading performance data (if sensitive)
+performance-reports/
+trading-analytics/
+
+# =============================================================================
+# API & EXTERNAL SERVICES
+# =============================================================================
+# API keys and tokens (multiple formats)
+api-keys/
+*.api-key
+.env.api
+
+# 0x Protocol API responses cache
+.0x-cache/
+
+# DEX aggregator cache
+dex-cache/
+
+# Price feed cache
+price-cache/
+
+# =============================================================================
+# RUNTIME & PROCESS FILES
+# =============================================================================
+# Process managers
+.pm2/
+ecosystem.config.js
+
+# Lock files (keep package-lock.json but ignore others)
+# package-lock.json should generally be committed
+yarn.lock
+pnpm-lock.yaml
+
+# =============================================================================
+# SECURITY & CERTIFICATES
+# =============================================================================
+# SSL certificates
+*.crt
+*.csr
+*.key
+*.pem
+certs/
+ssl/
+
+# OAuth tokens
+tokens/
+.oauth
+
+# JWT tokens
+*.jwt
+
+# =============================================================================
+# DEVELOPMENT TOOLS CACHE
+# =============================================================================
+# ESLint cache
+.eslintcache
+
+# Prettier cache
+.prettiercache
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Jest cache
+.jest/
+
+# Storybook
+.storybook-out/
+storybook-static/
+
+# =============================================================================
+# CUSTOM PROJECT FILES (AI TRADING SYSTEM)
+# =============================================================================
+# Custom data files (if they contain sensitive info)
+data.txt
+*.csv
+*.xlsx
+
+# API documentation with keys
+api-docs-private/
+
+# Scripts with hardcoded values
+scripts/private/
+
+# Safe SDK specific files
+safe-sdk-cache/
+
+# Trading history exports
+trading-history/
+*.trading-history
+
+# Performance backtest results
+backtest-results/
+*.backtest
+
+# =============================================================================
+# NETWORK & RPC CACHE
+# =============================================================================
+# Ethereum provider cache
+.eth-cache/
+
+# RPC response cache
+rpc-cache/
+
+# Network configuration with API keys
+networks-private.json
+
