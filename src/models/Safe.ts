@@ -186,7 +186,6 @@ const UserInfoSchema = new Schema<IUserInfo>(
     userId: {
       type: String,
       required: true,
-      unique: true,
     },
     walletAddress: {
       type: String,

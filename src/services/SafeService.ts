@@ -136,7 +136,7 @@ class SafeService {
       owners,
       threshold,
       saltNonce,
-      safeVersion: "1.3.0",
+      safeVersion: "1.4.1",
     };
 
     // Create Safe record in database
@@ -197,6 +197,21 @@ class SafeService {
     // Update Safe record with deployment results
     await this.updateSafeDeployments(safeId, deploymentResults);
 
+    // Check if all deployed addresses are the same (deterministic)
+    const deployedAddresses = Object.values(deploymentResults)
+      .filter((r) => r.deploymentStatus === "deployed")
+      .map((r) => r.address);
+
+    const uniqueAddresses = [...new Set(deployedAddresses)];
+
+    if (uniqueAddresses.length === 1 && deployedAddresses.length > 1) {
+      logger.info(
+        `✅ Deterministic deployment successful! Same address across all networks: ${uniqueAddresses[0]}`
+      );
+    } else if (uniqueAddresses.length > 1) {
+      logger.warn(`⚠️  Different addresses across networks:`, uniqueAddresses);
+    }
+
     // Get updated Safe record
     const updatedSafe = await SafeModel.findOne({ safeId });
 
@@ -248,7 +263,7 @@ class SafeService {
         );
       }
 
-      // Initialize Safe Protocol Kit
+      // Initialize Safe Protocol Kit with explicit contract addresses for deterministic cross-chain addresses
       const safeAccountConfig = {
         owners: safeConfig.owners,
         threshold: safeConfig.threshold,
@@ -258,11 +273,45 @@ class SafeService {
         saltNonce: safeConfig.saltNonce,
       };
 
+      // Use explicit contract addresses for deterministic addresses across chains
       const protocolKit = await Safe.init({
         provider: network.rpc,
         signer: this.agentPrivateKey,
-        predictedSafe: { safeAccountConfig, safeDeploymentConfig },
+        predictedSafe: {
+          safeAccountConfig,
+          safeDeploymentConfig,
+        },
         isL1SafeSingleton: false,
+        contractNetworks: {
+          [network.chainId]: {
+            // Safe v1.3.0 canonical contract addresses (deployed at same address across chains)
+            // These are the official addresses from the Safe deployments repository
+
+            // Core Safe singleton contract - the main Safe logic
+            safeSingletonAddress: "0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552",
+
+            // Safe proxy factory - creates minimal proxy contracts pointing to singleton
+            safeProxyFactoryAddress:
+              "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
+
+            // MultiSend library - allows batching multiple transactions
+            multiSendAddress: "0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761",
+
+            // MultiSendCallOnly library - batching for delegatecall-only transactions
+            multiSendCallOnlyAddress:
+              "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
+
+            // Fallback handler - handles token callbacks and message signing
+            fallbackHandlerAddress:
+              "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
+
+            // SignMessageLib - library for EIP-1271 message signing
+            signMessageLibAddress: "0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2",
+
+            // CreateCall library - allows Safe to deploy contracts via CREATE/CREATE2
+            createCallAddress: "0x7cbB62EaA69F79e6873cD1ecB2392971036cFdA4",
+          },
+        },
       });
 
       // Get predicted address
@@ -514,15 +563,31 @@ class SafeService {
 
   /**
    * Get common address from deployments
+   * With deterministic deployment, all successful deployments should have the same address
    */
   private getCommonAddress(
     deployments: Record<string, DeploymentResult>
   ): string | undefined {
-    const addresses = Object.values(deployments)
-      .filter((d) => d.deploymentStatus === "deployed")
-      .map((d) => d.address);
+    const successfulDeployments = Object.values(deployments).filter(
+      (d) => d.deploymentStatus === "deployed"
+    );
 
-    return addresses.length > 0 ? addresses[0] : undefined;
+    if (successfulDeployments.length === 0) {
+      return undefined;
+    }
+
+    const addresses = successfulDeployments.map((d) => d.address);
+    const uniqueAddresses = [...new Set(addresses)];
+
+    // All addresses should be the same with deterministic deployment
+    if (uniqueAddresses.length > 1) {
+      logger.warn(
+        `⚠️  Multiple Safe addresses detected - deterministic deployment may have failed:`,
+        uniqueAddresses
+      );
+    }
+
+    return addresses[0];
   }
 
   /**

@@ -214,7 +214,6 @@ class SafeController {
       }
 
       const safe = await this.safeService.getSafeByAddress(address);
-
       res.json({
         success: true,
         data: safe,

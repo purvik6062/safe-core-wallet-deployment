@@ -24,7 +24,7 @@ dotenv.config();
 declare global {
   namespace Express {
     interface Request {
-      redis: RedisClientType;
+      redis: RedisClientType | null;
     }
   }
 }
@@ -33,6 +33,7 @@ interface ServerConfig {
   port: number;
   nodeEnv: string;
   corsOrigin: string;
+  redisEnabled: boolean;
   redisUrl: string;
   mongoUri: string;
   enableRateLimit: boolean;
@@ -46,6 +47,7 @@ const config: ServerConfig = {
   port: parseInt(process.env.PORT || "3001"),
   nodeEnv: process.env.NODE_ENV || "development",
   corsOrigin: process.env.CORS_ORIGIN || "*",
+  redisEnabled: process.env.REDIS_ENABLED === "true",
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
   mongoUri:
     process.env.MONGODB_URI ||
@@ -55,21 +57,27 @@ const config: ServerConfig = {
   apiRateWindow: parseInt(process.env.API_RATE_WINDOW || "15"),
 };
 
-// Initialize Redis client
-const redis: RedisClientType = createClient({
-  url: config.redisUrl,
-});
+// Initialize Redis client only if enabled
+let redis: RedisClientType | null = null;
 
-redis.on("error", (err: Error) => {
-  logger.error("Redis Client Error:", err);
-  if (config.nodeEnv !== "production") {
-    logger.warn("Redis unavailable in development - caching disabled");
-  }
-});
+if (config.redisEnabled) {
+  redis = createClient({
+    url: config.redisUrl,
+  });
 
-redis.on("connect", () => {
-  logger.info("Connected to Redis");
-});
+  redis.on("error", (err: Error) => {
+    logger.error("Redis Client Error:", err);
+    if (config.nodeEnv !== "production") {
+      logger.warn("Redis unavailable in development - caching disabled");
+    }
+  });
+
+  redis.on("connect", () => {
+    logger.info("Connected to Redis");
+  });
+} else {
+  logger.info("Redis disabled - caching functionality will be unavailable");
+}
 
 // Connect to MongoDB (with better error handling for development)
 mongoose
@@ -188,7 +196,7 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
 
   try {
     await mongoose.connection.close();
-    await redis.quit();
+    await redis?.quit();
     logger.info("Database connections closed");
     process.exit(0);
   } catch (error) {
@@ -206,7 +214,9 @@ const startServer = async (): Promise<void> => {
   try {
     // Connect to Redis (with graceful fallback for development)
     try {
-      await redis.connect();
+      if (config.redisEnabled) {
+        await redis?.connect();
+      }
     } catch (redisError) {
       if (config.nodeEnv === "production") {
         throw redisError;

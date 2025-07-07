@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Extend Request interface for Redis
 interface RequestWithRedis extends Request {
-  redis: RedisClientType;
+  redis: RedisClientType | null;
 }
 
 interface HealthData {
@@ -86,6 +86,8 @@ router.get(
     try {
       if (req.redis && req.redis.isReady) {
         checks.redis = "connected";
+      } else if (req.redis === null) {
+        checks.redis = "disabled";
       } else {
         checks.redis = "disconnected";
       }
