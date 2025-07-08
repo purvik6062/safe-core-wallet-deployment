@@ -432,13 +432,21 @@ class SafeService {
 
     // Process results
     const newDeployments: Record<string, DeploymentResult> = {};
+    let hasSuccessfulDeployment = false;
+
     for (let i = 0; i < results.length; i++) {
       const networkKey = networksToExpand[i];
       const result = results[i];
 
       if (result.status === "fulfilled") {
         newDeployments[networkKey] = result.value;
-        await safe.addDeployment(networkKey, result.value);
+        if (result.value.deploymentStatus === "deployed") {
+          await safe.addDeployment(networkKey, result.value);
+          hasSuccessfulDeployment = true;
+          logger.info(
+            `✅ Added expansion deployment for ${networkKey}: ${result.value.address}`
+          );
+        }
       } else {
         newDeployments[networkKey] = {
           networkKey,
@@ -449,6 +457,15 @@ class SafeService {
           error: result.reason.message,
         };
       }
+    }
+
+    // Update Safe status to "active" if at least one deployment is successful
+    if (hasSuccessfulDeployment && safe.status === "initializing") {
+      safe.status = "active";
+      await safe.save();
+      logger.info(
+        `🎉 Safe status updated to "active" during expansion - Safe ID: ${safeId}`
+      );
     }
 
     return {
@@ -542,6 +559,28 @@ class SafeService {
   }
 
   /**
+   * Update Safe status manually
+   */
+  async updateSafeStatus(
+    safeId: string,
+    newStatus: "initializing" | "active" | "suspended" | "archived"
+  ): Promise<ISafe> {
+    const safe = await SafeModel.findOne({ safeId });
+    if (!safe) {
+      throw new Error(`Safe not found: ${safeId}`);
+    }
+
+    const oldStatus = safe.status;
+    await safe.updateStatus(newStatus);
+
+    logger.info(
+      `🔄 Safe status manually updated: ${safeId} - ${oldStatus} → ${newStatus}`
+    );
+
+    return safe;
+  }
+
+  /**
    * Update Safe deployments
    */
   private async updateSafeDeployments(
@@ -553,11 +592,24 @@ class SafeService {
       throw new Error(`Safe not found: ${safeId}`);
     }
 
+    let hasSuccessfulDeployment = false;
+
     for (const [networkKey, result] of Object.entries(deploymentResults)) {
       if (result.deploymentStatus === "deployed") {
         await safe.addDeployment(networkKey, result);
+        hasSuccessfulDeployment = true;
+        logger.info(`✅ Added deployment for ${networkKey}: ${result.address}`);
       }
     }
+
+    // Update Safe status to "active" if at least one deployment is successful
+    if (hasSuccessfulDeployment && safe.status === "initializing") {
+      safe.status = "active";
+      logger.info(`🎉 Safe status updated to "active" - Safe ID: ${safeId}`);
+    }
+
+    // Save the updated Safe with new status
+    await safe.save();
   }
 
   /**

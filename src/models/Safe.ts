@@ -78,6 +78,9 @@ export interface ISafe extends Document {
   ): Promise<ISafe>;
   getDeployment(networkKey: string): ISafeDeployment | undefined;
   updateAnalytics(data: Partial<ISafeAnalytics>): Promise<ISafe>;
+  updateStatus(
+    newStatus: "initializing" | "active" | "suspended" | "archived"
+  ): Promise<ISafe>;
   isDeployedOnNetwork(networkKey: string): boolean;
   getActiveDeployments(): ISafeDeployment[];
   updateLastActivity(): Promise<ISafe>;
@@ -370,6 +373,14 @@ SafeSchema.methods.updateAnalytics = async function (
   data: Partial<ISafeAnalytics>
 ): Promise<ISafe> {
   Object.assign(this.analytics, data);
+  this.metadata.updatedAt = new Date();
+  return await this.save();
+};
+
+SafeSchema.methods.updateStatus = async function (
+  newStatus: "initializing" | "active" | "suspended" | "archived"
+): Promise<ISafe> {
+  this.status = newStatus;
   this.metadata.updatedAt = new Date();
   return await this.save();
 };

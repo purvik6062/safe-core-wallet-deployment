@@ -61,6 +61,15 @@ interface UpdateSafeMetadataRequest extends Request {
   };
 }
 
+interface UpdateSafeStatusRequest extends Request {
+  params: {
+    safeId: string;
+  };
+  body: {
+    status: "initializing" | "active" | "suspended" | "archived";
+  };
+}
+
 interface SearchSafesRequest extends Request {
   query: {
     userId?: string;
@@ -396,6 +405,50 @@ class SafeController {
       res.status(500).json({
         success: false,
         error: "Failed to update Safe metadata",
+        message: errorMessage,
+      });
+    }
+  }
+
+  /**
+   * Update Safe status
+   * PUT /api/safe/:safeId/status
+   */
+  async updateSafeStatus(
+    req: UpdateSafeStatusRequest,
+    res: Response
+  ): Promise<void> {
+    try {
+      const { safeId } = req.params;
+      const { status } = req.body;
+
+      const updatedSafe = await this.safeService.updateSafeStatus(
+        safeId,
+        status
+      );
+
+      res.json({
+        success: true,
+        message: "Safe status updated successfully",
+        data: updatedSafe,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+
+      if (errorMessage.includes("not found")) {
+        res.status(404).json({
+          success: false,
+          error: "Safe not found",
+          message: errorMessage,
+        });
+        return;
+      }
+
+      logger.error("Update Safe status error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update Safe status",
         message: errorMessage,
       });
     }

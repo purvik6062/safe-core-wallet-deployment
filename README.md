@@ -4,13 +4,18 @@ A production-ready TypeScript backend service for deploying and managing Safe (G
 
 ## 🚀 Features
 
-- **Multi-chain Safe deployment** across Ethereum, Arbitrum, Polygon, Base, and Optimism
+- **Multi-Chain Safe Deployment**: Deploy Safe wallets across multiple networks simultaneously
+- **Deterministic Addresses**: Same Safe address across all supported networks
+- **Flexible Configuration**: Customizable owners, thresholds, and network selection
+- **Automatic Status Management**: Safe status automatically updates from "initializing" to "active" upon successful deployment
+- **Network Management**: Easy expansion to additional networks
+- **Comprehensive Analytics**: Track deployments, transactions, and network usage
+- **RESTful API**: Complete HTTP API for all Safe operations
+- **Database Integration**: MongoDB for persistent data storage
+- **Caching Layer**: Redis for improved performance
+- **Production Ready**: Docker support, logging, monitoring, and security features
 - **TypeScript** for type safety and better developer experience
-- **Deterministic addresses** using salt nonces for predictable Safe addresses
 - **Robust error handling** with detailed logging and monitoring
-- **Redis caching** for improved performance
-- **MongoDB** for persistent data storage
-- **Rate limiting** and security middleware
 - **Comprehensive validation** with express-validator
 - **Health checks** for monitoring service health
 

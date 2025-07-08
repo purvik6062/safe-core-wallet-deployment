@@ -31,6 +31,16 @@ const validateSafeMetadataUpdate = [
   body("metadata").isObject().withMessage("Metadata object is required"),
 ];
 
+// Validation middleware for Safe status update
+const validateSafeStatusUpdate = [
+  param("safeId").isUUID().withMessage("Valid Safe ID is required"),
+  body("status")
+    .isIn(["initializing", "active", "suspended", "archived"])
+    .withMessage(
+      "Status must be one of: initializing, active, suspended, archived"
+    ),
+];
+
 // Routes
 router.post(
   "/deploy",
@@ -81,6 +91,14 @@ router.put(
   validateSafeMetadataUpdate,
   async (req: Request, res: Response) => {
     await safeController.updateSafeMetadata(req as any, res);
+  }
+);
+
+router.put(
+  "/:safeId/status",
+  validateSafeStatusUpdate,
+  async (req: Request, res: Response) => {
+    await safeController.updateSafeStatus(req as any, res);
   }
 );
 

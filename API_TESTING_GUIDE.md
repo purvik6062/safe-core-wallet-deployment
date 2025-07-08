@@ -304,6 +304,82 @@ Content-Type: application/json
 }
 ```
 
+### 1. Deploy Safe Wallets
+
+Deploy Safe wallets across multiple networks for a user.
+
+```http
+POST {{baseUrl}}/api/safe/deploy
+Content-Type: application/json
+
+{
+  "userInfo": {
+    "userId": "test-user-123",
+    "walletAddress": "0x742d35Cc6681C4C5a6b1F55F64e5Df6B4F3a8532",
+    "email": "test@example.com",
+    "preferences": {
+      "defaultNetworks": ["sepolia", "arbitrum_sepolia", "base_sepolia"],
+      "autoExpand": false,
+      "notifications": {
+        "email": true,
+        "webhook": false
+      }
+    }
+  },
+  "config": {
+    "networks": ["sepolia", "arbitrum_sepolia", "base_sepolia"],
+    "autoExpand": false,
+    "description": "My trading Safe",
+    "tags": ["trading", "defi"]
+  }
+}
+```
+
+**Important Notes:**
+
+- Safe status automatically changes from `initializing` to `active` when at least one deployment is successful
+- User wallet address must be different from the agent wallet address
+- All owner addresses must be unique
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Safe deployed on 2 network(s)",
+  "data": {
+    "safeId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "commonAddress": "0x1234567890123456789012345678901234567890",
+    "config": {
+      "owners": [
+        "0x742d35Cc6552C0532025e4d96e0f3752b6D72B66",
+        "0xAgentWalletAddress..."
+      ],
+      "threshold": 1,
+      "saltNonce": "0x..."
+    },
+    "deployments": {
+      "sepolia": {
+        "networkKey": "sepolia",
+        "chainId": 11155111,
+        "address": "0x1234567890123456789012345678901234567890",
+        "deploymentStatus": "deployed",
+        "deploymentTxHash": "0x...",
+        "explorerUrl": "https://sepolia.etherscan.io/tx/0x..."
+      },
+      "arbitrum_sepolia": {
+        "networkKey": "arbitrum_sepolia",
+        "chainId": 421614,
+        "address": "0x1234567890123456789012345678901234567890",
+        "deploymentStatus": "deployed"
+      }
+    },
+    "successfulNetworks": ["sepolia", "arbitrum_sepolia", "base_sepolia"],
+    "totalNetworks": 2
+  }
+}
+```
+
 ---
 
 ## 🔍 Safe Retrieval Endpoints
@@ -685,196 +761,52 @@ Content-Type: application/json
 }
 ```
 
----
+### 31. Update Safe Metadata
 
-## ❌ Error Testing Endpoints
-
-### 31. Test Invalid Safe ID
+Update metadata for an existing Safe.
 
 ```http
-GET {{baseUrl}}/api/safe/00000000-0000-0000-0000-000000000000
-```
-
-**Expected Response:**
-
-```json
-{
-  "success": false,
-  "error": "Safe not found",
-  "message": "Safe not found: 00000000-0000-0000-0000-000000000000"
-}
-```
-
-### 32. Test Invalid Wallet Address
-
-```http
-POST {{baseUrl}}/api/safe/deploy
+PUT {{baseUrl}}/api/safe/{{safeId}}/metadata
 Content-Type: application/json
-```
 
-**Request Body:**
-
-```json
 {
-  "userInfo": {
-    "userId": "test-invalid",
-    "walletAddress": "invalid-address",
-    "email": "invalid@example.com"
+  "metadata": {
+    "description": "Updated description",
+    "tags": ["trading", "defi", "updated"]
   }
 }
 ```
 
-**Expected Response:**
+### 32. Update Safe Status
 
-```json
+Update the status of an existing Safe (admin operation).
+
+```http
+PUT {{baseUrl}}/api/safe/{{safeId}}/status
+Content-Type: application/json
+
 {
-  "success": false,
-  "error": "Validation failed",
-  "details": [
-    {
-      "msg": "Valid Ethereum address is required",
-      "param": "userInfo.walletAddress",
-      "location": "body"
-    }
-  ]
+  "status": "active"
 }
 ```
 
-### 33. Test Missing Required Fields
+**Status Values:**
 
-```http
-POST {{baseUrl}}/api/safe/deploy
-Content-Type: application/json
-```
+- `initializing` - Safe is being created (default)
+- `active` - Safe has successful deployments
+- `suspended` - Safe is temporarily disabled
+- `archived` - Safe is permanently disabled
 
-**Request Body:**
+**Note:** Safe status automatically changes from `initializing` to `active` when at least one deployment is successful.
+
+**Response:**
 
 ```json
 {
-  "userInfo": {
-    "userId": "test-missing"
+  "success": true,
+  "message": "Safe status updated successfully",
+  "data": {
+    // Safe object with updated status
   }
 }
 ```
-
-### 34. Test Invalid Network Group
-
-```http
-GET {{baseUrl}}/api/network/groups/invalid-group
-```
-
-**Expected Response:**
-
-```json
-{
-  "success": false,
-  "error": "Network group not found",
-  "message": "Invalid network group: invalid-group"
-}
-```
-
-### 35. Test Empty Networks Array for Expansion
-
-```http
-POST {{baseUrl}}/api/safe/{{testSafeId}}/expand
-Content-Type: application/json
-```
-
-**Request Body:**
-
-```json
-{
-  "networks": []
-}
-```
-
-**Expected Response:**
-
-```json
-{
-  "success": false,
-  "error": "Networks array is required",
-  "message": "Networks array with at least one network is required"
-}
-```
-
-### 36. Test Non-existent Endpoint
-
-```http
-GET {{baseUrl}}/api/nonexistent-endpoint
-```
-
-**Expected Response:**
-
-```json
-{
-  "error": "Endpoint not found",
-  "message": "The requested endpoint /api/nonexistent-endpoint does not exist",
-  "availableEndpoints": ["/api/health", "/api/safe", "/api/network"]
-}
-```
-
----
-
-## 🧪 Postman Pre-request Scripts
-
-Add these scripts to automatically handle dynamic data:
-
-### Extract SafeId from Deploy Response
-
-```javascript
-// Add to deploy endpoint test
-if (pm.response.json().success) {
-  pm.environment.set("testSafeId", pm.response.json().data.safeId);
-  pm.environment.set("testAddress", pm.response.json().data.commonAddress);
-}
-```
-
-### Generate Random Test Data
-
-```javascript
-// Add to any test for unique data
-pm.environment.set(
-  "randomUserId",
-  "user-" + Math.random().toString(36).substr(2, 9)
-);
-pm.environment.set("timestamp", new Date().toISOString());
-```
-
-## 📊 Test Assertion Examples
-
-### Validate Response Structure
-
-```javascript
-pm.test("Response has required fields", function () {
-  const jsonData = pm.response.json();
-  pm.expect(jsonData).to.have.property("success");
-  pm.expect(jsonData).to.have.property("data");
-});
-```
-
-### Validate Safe Address Consistency
-
-```javascript
-pm.test("Safe has consistent address across networks", function () {
-  const deployments = pm.response.json().data.deployments;
-  const addresses = Object.values(deployments).map((d) => d.address);
-  const uniqueAddresses = [...new Set(addresses)];
-  pm.expect(uniqueAddresses).to.have.lengthOf(1);
-});
-```
-
-## 🚀 Running Tests
-
-1. **Import into Postman**: Copy the JSON requests above
-2. **Set Environment Variables**: Configure base URL and test data
-3. **Run Collection**: Execute all tests in sequence
-4. **Check Results**: Verify responses match expected formats
-
-## 📝 Notes
-
-- **Test Order**: Run deployment tests before retrieval/expansion tests
-- **Environment**: Ensure your local server is running on the correct port
-- **Data Persistence**: Some tests depend on previous test results (safeId, address)
-- **Network Status**: Some deployments may fail due to network conditions or gas fees
-- **Rate Limiting**: Add delays if testing rapidly to avoid rate limits
