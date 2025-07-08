@@ -149,7 +149,7 @@ safe-backend/
 
 - **Owners**: User wallet + Agent wallet (2 owners)
 - **Threshold**: 1 (either owner can execute)
-- **Version**: 1.3.0
+- **Version**: 1.4.1
 - **Deterministic**: Uses salt nonce for predictable addresses
 
 ## 🔐 Security Features
@@ -192,7 +192,7 @@ curl -X POST http://localhost:3001/api/safe/deploy \
       "walletAddress": "0x742d35Cc6634C0532925a3b8D6C6d6f0A0c8e9b2"
     },
     "config": {
-      "networks": ["sepolia", "arbitrum_sepolia"],
+      "networks": ["sepolia", "arbitrum_sepolia", "base_sepolia"],
       "description": "My trading Safe",
       "tags": ["trading", "defi"]
     }

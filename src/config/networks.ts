@@ -35,6 +35,7 @@ export type NetworkKey =
   | "arbitrum_sepolia"
   | "polygon"
   | "base"
+  | "base_sepolia"
   | "optimism";
 
 export type NetworkGroupKey =
@@ -59,7 +60,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     explorer: "https://etherscan.io",
     currency: { name: "Ether", symbol: "ETH", decimals: 18 },
     isTestnet: false,
-    safeVersion: "1.3.0",
+    safeVersion: "1.4.1",
     features: ["defi_hub", "highest_liquidity", "most_dapps"],
     faucets: [],
     gasPrice: { min: 20, max: 200, unit: "gwei" },
@@ -73,7 +74,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     explorer: "https://sepolia.etherscan.io",
     currency: { name: "Sepolia Ether", symbol: "SEP", decimals: 18 },
     isTestnet: true,
-    safeVersion: "1.3.0",
+    safeVersion: "1.4.1",
     features: ["testing", "development"],
     faucets: [
       "https://www.alchemy.com/faucets/ethereum-sepolia",
@@ -91,7 +92,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     explorer: "https://arbiscan.io",
     currency: { name: "Ether", symbol: "ETH", decimals: 18 },
     isTestnet: false,
-    safeVersion: "1.3.0",
+    safeVersion: "1.4.1",
     features: ["low_fees", "fast_execution", "derivatives", "gaming"],
     faucets: [],
     gasPrice: { min: 0.1, max: 2, unit: "gwei" },
@@ -105,7 +106,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     explorer: "https://sepolia.arbiscan.io",
     currency: { name: "Sepolia Ether", symbol: "SEP", decimals: 18 },
     isTestnet: true,
-    safeVersion: "1.3.0",
+    safeVersion: "1.4.1",
     features: ["testing", "low_fees", "fast_execution"],
     faucets: ["https://www.alchemy.com/faucets/arbitrum-sepolia"],
     gasPrice: { min: 0.01, max: 0.5, unit: "gwei" },
@@ -119,7 +120,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     explorer: "https://polygonscan.com",
     currency: { name: "Polygon", symbol: "MATIC", decimals: 18 },
     isTestnet: false,
-    safeVersion: "1.3.0",
+    safeVersion: "1.4.1",
     features: [
       "ultra_low_fees",
       "gaming_tokens",
@@ -138,7 +139,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     explorer: "https://basescan.org",
     currency: { name: "Ether", symbol: "ETH", decimals: 18 },
     isTestnet: false,
-    safeVersion: "1.3.0",
+    safeVersion: "1.4.1",
     features: [
       "coinbase_integration",
       "social_tokens",
@@ -147,6 +148,21 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     ],
     faucets: [],
     gasPrice: { min: 0.1, max: 2, unit: "gwei" },
+  },
+  base_sepolia: {
+    name: "Base Sepolia",
+    rpc: process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org",
+    chainId: 84532,
+    explorer: "https://sepolia.basescan.org",
+    currency: { name: "Sepolia Ether", symbol: "SEP", decimals: 18 },
+    isTestnet: true,
+    safeVersion: "1.4.1",
+    features: ["testing", "low_fees", "coinbase_integration"],
+    faucets: [
+      "https://www.alchemy.com/faucets/base-sepolia",
+      "https://faucet.quicknode.com/base/sepolia",
+    ],
+    gasPrice: { min: 0.01, max: 0.5, unit: "gwei" },
   },
 
   // Optimism
@@ -157,7 +173,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
     explorer: "https://optimistic.etherscan.io",
     currency: { name: "Ether", symbol: "ETH", decimals: 18 },
     isTestnet: false,
-    safeVersion: "1.3.0",
+    safeVersion: "1.4.1",
     features: [
       "low_fees",
       "fast_execution",
@@ -172,7 +188,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
 // Network groups for easy filtering
 export const NETWORK_GROUPS: Record<NetworkGroupKey, NetworkKey[]> = {
   mainnet: ["ethereum", "arbitrum", "polygon", "base", "optimism"],
-  testnet: ["sepolia", "arbitrum_sepolia"],
+  testnet: ["sepolia", "arbitrum_sepolia", "base_sepolia"],
   lowFee: ["arbitrum", "polygon", "base", "optimism"],
   highLiquidity: ["ethereum", "arbitrum", "polygon"],
   emerging: ["base"],
@@ -309,7 +325,7 @@ export function getRecommendedNetworks(useCase: string): NetworkConfig[] {
     trading: ["arbitrum", "polygon", "base"],
     gaming: ["polygon", "arbitrum"],
     defi: ["ethereum", "arbitrum", "optimism"],
-    development: ["sepolia", "arbitrum_sepolia"],
+    development: ["sepolia", "arbitrum_sepolia", "base_sepolia"],
     low_cost: ["polygon", "arbitrum", "base"],
     emerging: ["base"],
   };

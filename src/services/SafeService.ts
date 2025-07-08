@@ -105,7 +105,7 @@ class SafeService {
     config: DeploymentConfig = {}
   ): Promise<SafeDeploymentResponse> {
     const {
-      networks = ["sepolia", "arbitrum_sepolia"],
+      networks = ["sepolia", "arbitrum_sepolia", "base_sepolia"],
       autoExpand = false,
       description = "",
       tags = [],
@@ -263,7 +263,7 @@ class SafeService {
         );
       }
 
-      // Initialize Safe Protocol Kit with explicit contract addresses for deterministic cross-chain addresses
+      // Initialize Safe Protocol Kit with explicit contract addresses for deterministic addresses across all networks
       const safeAccountConfig = {
         owners: safeConfig.owners,
         threshold: safeConfig.threshold,
@@ -273,46 +273,56 @@ class SafeService {
         saltNonce: safeConfig.saltNonce,
       };
 
-      // Use explicit contract addresses for deterministic addresses across chains
-      const protocolKit = await Safe.init({
-        provider: network.rpc,
-        signer: this.agentPrivateKey,
-        predictedSafe: {
-          safeAccountConfig,
-          safeDeploymentConfig,
-        },
-        isL1SafeSingleton: false,
-        contractNetworks: {
-          [network.chainId]: {
-            // Safe v1.3.0 canonical contract addresses (deployed at same address across chains)
-            // These are the official addresses from the Safe deployments repository
+      let protocolKit: Safe;
 
-            // Core Safe singleton contract - the main Safe logic
-            safeSingletonAddress: "0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552",
+      try {
+        logger.info(
+          `🔍 Initializing Safe SDK for ${network.name} with Safe v1.4.1 canonical addresses`
+        );
 
-            // Safe proxy factory - creates minimal proxy contracts pointing to singleton
-            safeProxyFactoryAddress:
-              "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
-
-            // MultiSend library - allows batching multiple transactions
-            multiSendAddress: "0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761",
-
-            // MultiSendCallOnly library - batching for delegatecall-only transactions
-            multiSendCallOnlyAddress:
-              "0x40A2aCCbd92BCA938b02010E17A5b8929b49130D",
-
-            // Fallback handler - handles token callbacks and message signing
-            fallbackHandlerAddress:
-              "0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4",
-
-            // SignMessageLib - library for EIP-1271 message signing
-            signMessageLibAddress: "0xA65387F16B013cf2Af4605Ad8aA5ec25a2cbA3a2",
-
-            // CreateCall library - allows Safe to deploy contracts via CREATE/CREATE2
-            createCallAddress: "0x7cbB62EaA69F79e6873cD1ecB2392971036cFdA4",
+        protocolKit = await Safe.init({
+          provider: network.rpc,
+          signer: this.agentPrivateKey,
+          predictedSafe: {
+            safeAccountConfig,
+            safeDeploymentConfig,
           },
-        },
-      });
+          isL1SafeSingleton: false,
+          // canonical addresses for consistent deployment across all networks
+          contractNetworks: {
+            [network.chainId]: {
+              // safeSingletonAddress:
+              //   "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+              safeSingletonAddress:
+                "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+              safeProxyFactoryAddress:
+                "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+              multiSendAddress: "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526",
+              multiSendCallOnlyAddress:
+                "0x9641d764fc13c8B624c04430C7356C1C7C8102e2",
+              fallbackHandlerAddress:
+                "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+              signMessageLibAddress:
+                "0xd53cd0aB83D845Ac265BE939c57F53AD838012c9",
+              createCallAddress: "0x9b35Af71d77eaf8d7e40252370304687390A1A52",
+            },
+          },
+        });
+
+        logger.info(
+          `✅ Safe SDK initialized successfully for ${network.name} using Safe v1.4.1`
+        );
+      } catch (error) {
+        logger.error(
+          `❌ Failed to initialize Safe SDK for ${network.name}:`,
+          error
+        );
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Safe initialization failed for ${network.name}: ${errorMessage}`
+        );
+      }
 
       // Get predicted address
       const predictedAddress = await protocolKit.getAddress();

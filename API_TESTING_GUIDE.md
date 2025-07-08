@@ -248,7 +248,7 @@ Content-Type: application/json
         "deploymentStatus": "deployed"
       }
     },
-    "successfulNetworks": ["sepolia", "arbitrum_sepolia"],
+    "successfulNetworks": ["sepolia", "arbitrum_sepolia", "base_sepolia"],
     "totalNetworks": 2
   }
 }
@@ -326,7 +326,7 @@ GET {{baseUrl}}/api/safe/{{testSafeId}}
       "walletAddress": "0x742d35Cc6552C0532025e4d96e0f3752b6D72B66",
       "email": "test@example.com",
       "preferences": {
-        "defaultNetworks": ["sepolia", "arbitrum_sepolia"],
+        "defaultNetworks": ["sepolia", "arbitrum_sepolia", "base_sepolia"],
         "autoExpand": false,
         "notifications": {
           "email": true,
@@ -338,7 +338,7 @@ GET {{baseUrl}}/api/safe/{{testSafeId}}
       "owners": ["0x742d35Cc6552C0532025e4d96e0f3752b6D72B66", "0xAgent..."],
       "threshold": 1,
       "saltNonce": "0x...",
-      "safeVersion": "1.3.0"
+      "safeVersion": "1.4.1"
     },
     "deployments": {
       "sepolia": {
@@ -352,7 +352,7 @@ GET {{baseUrl}}/api/safe/{{testSafeId}}
       "description": "My First Safe Wallet",
       "tags": ["personal", "defi"],
       "totalDeployments": 2,
-      "activeNetworks": ["sepolia", "arbitrum_sepolia"]
+      "activeNetworks": ["sepolia", "arbitrum_sepolia", "base_sepolia"]
     }
   }
 }
@@ -478,7 +478,7 @@ GET {{baseUrl}}/api/safe/search?tags=defi,enterprise
 ### 24. Advanced Search with Multiple Filters
 
 ```http
-GET {{baseUrl}}/api/safe/search?userId={{testUserId}}&status=active&networks=sepolia,arbitrum_sepolia&tags=personal
+GET {{baseUrl}}/api/safe/search?userId={{testUserId}}&status=active&networks=sepolia,arbitrum_sepolia,base_sepolia&tags=personal
 ```
 
 **Expected Response:**
@@ -503,7 +503,7 @@ GET {{baseUrl}}/api/safe/search?userId={{testUserId}}&status=active&networks=sep
     "filters": {
       "userId": "test-user-123",
       "status": "active",
-      "networks": ["sepolia", "arbitrum_sepolia"],
+      "networks": ["sepolia", "arbitrum_sepolia", "base_sepolia"],
       "tags": ["personal"]
     }
   }

@@ -9,6 +9,7 @@ export interface ISafeDeployment {
     | "arbitrum_sepolia"
     | "polygon"
     | "base"
+    | "base_sepolia"
     | "optimism";
   chainId: number;
   address: string;
@@ -104,6 +105,7 @@ const SafeDeploymentSchema = new Schema<ISafeDeployment>(
         "arbitrum_sepolia",
         "polygon",
         "base",
+        "base_sepolia",
         "optimism",
       ],
     },
@@ -172,7 +174,7 @@ const SafeConfigSchema = new Schema<ISafeConfig>(
     },
     safeVersion: {
       type: String,
-      default: "1.3.0",
+      default: "1.4.1",
     },
   },
   {
