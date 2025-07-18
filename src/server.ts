@@ -5,7 +5,7 @@ import compression from "compression";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 import dotenv from "dotenv";
-import mongoose from "mongoose";
+import DatabaseConnection from "./config/database.js";
 import { createClient, RedisClientType } from "redis";
 
 // Import routes
@@ -79,22 +79,7 @@ if (config.redisEnabled) {
   logger.info("Redis disabled - caching functionality will be unavailable");
 }
 
-// Connect to MongoDB (with better error handling for development)
-mongoose
-  .connect(config.mongoUri)
-  .then(() => {
-    logger.info("Connected to MongoDB");
-  })
-  .catch((error: Error) => {
-    logger.error("MongoDB connection error:", error);
-    if (config.nodeEnv === "production") {
-      process.exit(1);
-    } else {
-      logger.warn(
-        "MongoDB unavailable in development - some features may not work"
-      );
-    }
-  });
+// MongoDB connection will be established in startServer function
 
 // Security middleware
 app.use(
@@ -195,7 +180,7 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
   logger.info(`${signal} received, shutting down gracefully`);
 
   try {
-    await mongoose.connection.close();
+    await DatabaseConnection.getInstance().disconnect();
     await redis?.quit();
     logger.info("Database connections closed");
     process.exit(0);
@@ -212,6 +197,19 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 // Start server
 const startServer = async (): Promise<void> => {
   try {
+    // Connect to MongoDB
+    try {
+      await DatabaseConnection.getInstance().connect();
+    } catch (mongoError) {
+      if (config.nodeEnv === "production") {
+        throw mongoError;
+      } else {
+        logger.warn(
+          "MongoDB connection failed in development - some features may not work"
+        );
+      }
+    }
+
     // Connect to Redis (with graceful fallback for development)
     try {
       if (config.redisEnabled) {

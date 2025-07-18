@@ -2,10 +2,10 @@
 
 ## ✅ Issues Fixed
 
-### 1. **Mongoose Duplicate Index Warning** - FIXED ✅
+### 1. **Mongodb Duplicate Index Warning** - FIXED ✅
 
 - **Issue**: `Warning: Duplicate schema index on {"userInfo.userId":1}`
-- **Solution**: Removed duplicate index declarations ([reference](https://mongoosejs.com/docs/deprecations.html))
+- **Solution**: Removed duplicate index declarations ([reference](https://mongodb.com/docs/deprecations.html))
 - **Changes Made**:
   - Removed `index: true` from fields that already have `unique: true`
   - Removed duplicate `SafeSchema.index({ "userInfo.userId": 1 });`

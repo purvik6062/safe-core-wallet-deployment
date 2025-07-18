@@ -1,8 +1,9 @@
 import Safe from "@safe-global/protocol-kit";
 import { ethers } from "ethers";
 import { v4 as uuidv4 } from "uuid";
-import SafeModel, {
-  ISafe,
+import {
+  Safe as SafeModel,
+  ISafeDocument,
   ISafeDeployment,
   ISafeConfig,
   IUserInfo,
@@ -155,6 +156,11 @@ class SafeService {
       metadata: {
         description,
         tags,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        totalDeployments: 0,
+        activeNetworks: [],
+        lastActivityAt: new Date(),
       },
     });
 
@@ -480,7 +486,7 @@ class SafeService {
   /**
    * Get Safe by ID
    */
-  async getSafeById(safeId: string): Promise<ISafe> {
+  async getSafeById(safeId: string): Promise<SafeModel> {
     const safe = await SafeModel.findOne({ safeId });
     if (!safe) {
       throw new Error(`Safe not found: ${safeId}`);
@@ -494,7 +500,7 @@ class SafeService {
   async getSafesByUserId(
     userId: string,
     options: GetSafesOptions = {}
-  ): Promise<ISafe[]> {
+  ): Promise<SafeModel[]> {
     const {
       status,
       networks,
@@ -514,20 +520,29 @@ class SafeService {
       query["metadata.activeNetworks"] = { $in: networks };
     }
 
-    const sortObj: any = {};
-    sortObj[sortBy] = sortOrder === "desc" ? -1 : 1;
+    // Note: With our current SafeModel.find() implementation,
+    // we get all results and filter in memory for now
+    // TODO: Implement pagination in the SafeModel.find() method
+    const allSafes = await SafeModel.find(query);
 
-    return await SafeModel.find(query)
-      .sort(sortObj)
-      .skip(offset)
-      .limit(limit)
-      .exec();
+    // Sort in memory
+    allSafes.sort((a, b) => {
+      const aVal = (a as any)[sortBy];
+      const bVal = (b as any)[sortBy];
+      if (sortOrder === "desc") {
+        return bVal > aVal ? 1 : -1;
+      }
+      return aVal > bVal ? 1 : -1;
+    });
+
+    // Apply pagination
+    return allSafes.slice(offset, offset + limit);
   }
 
   /**
    * Get Safe by address
    */
-  async getSafeByAddress(address: string): Promise<ISafe> {
+  async getSafeByAddress(address: string): Promise<SafeModel> {
     const safe = await SafeModel.findOne({
       $or: [
         { "userInfo.walletAddress": address },
@@ -548,7 +563,7 @@ class SafeService {
   async updateSafeMetadata(
     safeId: string,
     metadata: Partial<any>
-  ): Promise<ISafe> {
+  ): Promise<SafeModel> {
     const safe = await SafeModel.findOne({ safeId });
     if (!safe) {
       throw new Error(`Safe not found: ${safeId}`);
@@ -564,7 +579,7 @@ class SafeService {
   async updateSafeStatus(
     safeId: string,
     newStatus: "initializing" | "active" | "suspended" | "archived"
-  ): Promise<ISafe> {
+  ): Promise<SafeModel> {
     const safe = await SafeModel.findOne({ safeId });
     if (!safe) {
       throw new Error(`Safe not found: ${safeId}`);
@@ -666,7 +681,7 @@ class SafeService {
       },
     ];
 
-    const result = await SafeModel.aggregate(pipeline).exec();
+    const result = await SafeModel.aggregate(pipeline);
     const stats = result[0] || { totalSafes: 0, allNetworks: [] };
 
     // Count deployments per network
@@ -727,7 +742,7 @@ class SafeService {
   /**
    * Search Safes with filters
    */
-  async searchSafes(filters: SearchFilters = {}): Promise<ISafe[]> {
+  async searchSafes(filters: SearchFilters = {}): Promise<SafeModel[]> {
     const query: any = {};
 
     if (filters.userId) {
@@ -760,7 +775,7 @@ class SafeService {
       ];
     }
 
-    return await SafeModel.find(query).exec();
+    return await SafeModel.find(query);
   }
 }
 
