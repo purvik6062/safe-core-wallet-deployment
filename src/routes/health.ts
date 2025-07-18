@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import mongoose from "mongoose";
+import DatabaseConnection from "../config/database.js";
 import { ethers } from "ethers";
 import { RedisClientType } from "redis";
 
@@ -73,7 +73,8 @@ router.get(
 
     // Check MongoDB connection
     try {
-      if (mongoose.connection.readyState === 1) {
+      const dbConnection = DatabaseConnection.getInstance();
+      if (dbConnection.isConnected() && (await dbConnection.ping())) {
         checks.database = "connected";
       } else {
         checks.database = "disconnected";

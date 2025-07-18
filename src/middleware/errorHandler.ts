@@ -43,24 +43,26 @@ const errorHandler = (
     userAgent: req.get("User-Agent"),
   });
 
-  // Mongoose bad ObjectId
-  if (err.name === "CastError") {
+  // MongoDB ObjectId validation error
+  if (err.name === "BSONTypeError" || err.message?.includes("ObjectId")) {
     const message = "Invalid ID format";
     error = { message, statusCode: 400 };
   }
 
-  // Mongoose duplicate key
+  // MongoDB duplicate key error
   if ((err as MongoError).code === 11000) {
     const message = "Duplicate field value entered";
     error = { message, statusCode: 400 };
   }
 
-  // Mongoose validation error
-  if (err.name === "ValidationError") {
-    const message = Object.values(err.errors || {})
-      .map((val: any) => val.message)
-      .join(", ");
-    error = { message, statusCode: 400 };
+  // MongoDB validation errors from our custom validation
+  if (
+    err.message &&
+    (err.message.includes("required") ||
+      err.message.includes("Invalid") ||
+      err.message.includes("format"))
+  ) {
+    error = { message: err.message, statusCode: 400 };
   }
 
   // JWT errors
