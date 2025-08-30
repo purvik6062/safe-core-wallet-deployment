@@ -14,6 +14,7 @@ import {
   NetworkKey,
   NetworkConfig,
 } from "../config/networks.js";
+import DatabaseConnection from "../config/database.js";
 import logger from "../config/logger.js";
 
 // Interface definitions
@@ -166,6 +167,9 @@ class SafeService {
 
     await safeRecord.save();
     logger.info(`Created Safe record with ID: ${safeId}`);
+
+    // Store wallet address in ctxbt-signal-flow database
+    await this.storeWalletAddressInSignalFlow(userInfo);
 
     // Deploy on each network in parallel
     const deploymentPromises = networks.map((networkKey) =>
@@ -737,6 +741,55 @@ class SafeService {
       totalValueTransferred,
       mostUsedNetwork,
     };
+  }
+
+  /**
+   * Store wallet address in ctxbt-signal-flow database
+   */
+  private async storeWalletAddressInSignalFlow(
+    userInfo: IUserInfo
+  ): Promise<void> {
+    try {
+      // Get the MongoDB client from the existing connection
+      const mongoClient = DatabaseConnection.getInstance().getClient();
+
+      // Connect to the ctxbt-signal-flow database
+      const signalFlowDb = mongoClient.db("ctxbt-signal-flow");
+      const usersCollection = signalFlowDb.collection("users");
+
+      // Find the user document where twitterUsername matches userInfo.userId
+      const userDocument = await usersCollection.findOne({
+        twitterUsername: userInfo.userId,
+      });
+
+      if (!userDocument) {
+        logger.warn(
+          `User not found in ctxbt-signal-flow database for twitterUsername: ${userInfo.userId}`
+        );
+        return;
+      }
+
+      // Update the document to include the wallet address
+      await usersCollection.updateOne(
+        { twitterUsername: userInfo.userId },
+        {
+          $set: {
+            walletAddress: userInfo.walletAddress,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      logger.info(
+        `✅ Wallet address stored in ctxbt-signal-flow database for user: ${userInfo.userId}`
+      );
+    } catch (error) {
+      logger.error(
+        `❌ Failed to store wallet address in ctxbt-signal-flow database for user ${userInfo.userId}:`,
+        error
+      );
+      // Don't throw the error as this shouldn't break the main safe creation flow
+    }
   }
 
   /**
