@@ -759,7 +759,7 @@ class SafeService {
 
       // Find the user document where twitterUsername matches userInfo.userId
       const userDocument = await usersCollection.findOne({
-        twitterUsername: userInfo.userId,
+        twitterId: userInfo.userId,
       });
 
       if (!userDocument) {
@@ -771,7 +771,9 @@ class SafeService {
 
       // Update the document to include the wallet address
       await usersCollection.updateOne(
-        { twitterUsername: userInfo.userId },
+        {
+          twitterId: userInfo.userId,
+        },
         {
           $set: {
             walletAddress: userInfo.walletAddress,
