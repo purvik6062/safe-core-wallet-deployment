@@ -107,7 +107,7 @@ class SafeService {
     config: DeploymentConfig = {}
   ): Promise<SafeDeploymentResponse> {
     const {
-      networks = ["sepolia", "arbitrum_sepolia", "base_sepolia"],
+      networks = ["sepolia", "arbitrum_sepolia", "base_sepolia", "arbitrum"],
       autoExpand = false,
       description = "",
       tags = [],
