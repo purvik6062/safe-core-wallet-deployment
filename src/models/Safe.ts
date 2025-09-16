@@ -1,7 +1,7 @@
 import { Collection, ObjectId, WithId } from "mongodb";
 import DatabaseConnection from "../config/database.js";
 
-// TypeScript interfaces for the models (MongoDB)     
+// TypeScript interfaces for the models (MongoDB)
 export interface ISafeDeployment {
   networkKey:
     | "ethereum"
@@ -35,6 +35,8 @@ export interface IUserInfo {
   userId: string;
   walletAddress: string;
   email?: string;
+  agentId?: string; // Add agent ID for agent-specific deployments
+  agentType?: string; // Add agent type (perpetuals/spot)
   preferences: {
     defaultNetworks: string[];
     autoExpand: boolean;
@@ -212,7 +214,7 @@ export class Safe {
 
   public getActiveDeployments(): ISafeDeployment[] {
     const deployments: ISafeDeployment[] = [];
-    for (const [key, deployment] of Object.entries(this.deployments)) {
+    for (const [_key, deployment] of Object.entries(this.deployments)) {
       if (deployment.isActive && deployment.deploymentStatus === "deployed") {
         deployments.push(deployment);
       }

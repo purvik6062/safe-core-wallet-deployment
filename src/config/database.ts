@@ -9,9 +9,7 @@ class DatabaseConnection {
   private databaseName: string;
 
   private constructor() {
-    this.connectionUri =
-      process.env.MONGODB_URI ||
-      "mongodb://localhost:27017/safe-deployment-service";
+    this.connectionUri = process.env.MONGODB_URI || "";
     // Extract database name from URI or use default
     const uriParts = this.connectionUri.split("/");
     this.databaseName =
