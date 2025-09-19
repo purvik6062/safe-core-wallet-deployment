@@ -240,7 +240,8 @@ npm run dev
 
 Key environment variables:
 
-- `AGENT_PRIVATE_KEY`: Private key for Safe deployment (⚠️ Use test keys only)
+- `AGENT_PRIVATE_KEY`: Private key for Safe deployment when `agentType` is perpetuals (default; ⚠️ Use test keys only)
+- `SPOT_AGENT_PRIVATE_KEY`: Private key for Safe deployment when `agentType` is spot (⚠️ Use test keys only)
 - `MONGODB_URI`: MongoDB connection string
 - `REDIS_URL`: Redis connection URL
 - `*_RPC`: RPC endpoints for each blockchain network
