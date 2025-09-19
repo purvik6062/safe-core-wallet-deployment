@@ -85,18 +85,48 @@ export interface UserStats {
  * Handles multi-chain Safe deployments with deterministic addresses
  */
 class SafeService {
-  private agentPrivateKey: string;
   private cache: Map<string, any>;
   private deploymentQueue: Map<string, boolean>;
 
   constructor() {
-    this.agentPrivateKey = process.env.AGENT_PRIVATE_KEY || "";
-    if (!this.agentPrivateKey) {
-      throw new Error("AGENT_PRIVATE_KEY environment variable is required");
-    }
-
+    // Do not enforce a specific key at construction time; we will validate per request
     this.cache = new Map(); // In-memory cache for frequently accessed data
     this.deploymentQueue = new Map(); // Track ongoing deployments
+  }
+
+  /**
+   * Resolve which agent private key to use based on agentType
+   * perpetuals -> AGENT_PRIVATE_KEY (legacy default)
+   * spot -> SPOT_AGENT_PRIVATE_KEY
+   */
+  private getAgentPrivateKey(agentType?: string): string {
+    const normalized = (agentType || "").toLowerCase();
+    const isSpot = normalized === "spot";
+    const isPerp =
+      normalized === "perp" ||
+      normalized === "perps" ||
+      normalized === "perpetual" ||
+      normalized === "perpetuals" ||
+      normalized === "";
+
+    if (isSpot) {
+      const key = process.env.SPOT_AGENT_PRIVATE_KEY || "";
+      if (!key) {
+        throw new Error(
+          "SPOT_AGENT_PRIVATE_KEY environment variable is required for spot agentType"
+        );
+      }
+      return key;
+    }
+
+    // default to perpetuals key for backward compatibility
+    const key = process.env.AGENT_PRIVATE_KEY || "";
+    if (!key) {
+      throw new Error(
+        "AGENT_PRIVATE_KEY environment variable is required for perpetuals agentType"
+      );
+    }
+    return key;
   }
 
   /**
@@ -127,8 +157,9 @@ class SafeService {
     // Generate unique Salt Nonce for deterministic addresses
     const saltNonce = this.generateSaltNonce(userInfo.userId);
 
-    // Agent wallet that will co-own the Safes
-    const agentWallet = new ethers.Wallet(this.agentPrivateKey);
+    // Agent wallet that will co-own the Safes (selected by agentType)
+    const selectedPrivateKey = this.getAgentPrivateKey(userInfo.agentType);
+    const agentWallet = new ethers.Wallet(selectedPrivateKey);
 
     // Safe configuration: User + Agent as owners
     const owners = [userInfo.walletAddress, agentWallet.address];
@@ -173,7 +204,12 @@ class SafeService {
 
     // Deploy on each network in parallel
     const deploymentPromises = networks.map((networkKey) =>
-      this.deploySafeOnNetwork(safeId, networkKey, safeConfig)
+      this.deploySafeOnNetwork(
+        safeId,
+        networkKey,
+        safeConfig,
+        userInfo.agentType
+      )
     );
 
     const results = await Promise.allSettled(deploymentPromises);
@@ -240,7 +276,8 @@ class SafeService {
   async deploySafeOnNetwork(
     safeId: string,
     networkKey: NetworkKey,
-    safeConfig: ISafeConfig
+    safeConfig: ISafeConfig,
+    agentType?: string
   ): Promise<DeploymentResult> {
     const cacheKey = `deployment:${safeId}:${networkKey}`;
 
@@ -255,9 +292,12 @@ class SafeService {
       const network = getNetwork(networkKey);
       logger.info(`Deploying Safe on ${network.name} (${networkKey})`);
 
+      // Resolve private key for this operation
+      const privateKey = this.getAgentPrivateKey(agentType);
+
       // Create provider and deployer wallet
       const provider = new ethers.JsonRpcProvider(network.rpc);
-      const deployerWallet = new ethers.Wallet(this.agentPrivateKey, provider);
+      const deployerWallet = new ethers.Wallet(privateKey, provider);
 
       // Check deployer balance
       const balance = await deployerWallet.provider!.getBalance(
@@ -292,7 +332,7 @@ class SafeService {
 
         protocolKit = await Safe.init({
           provider: network.rpc,
-          signer: this.agentPrivateKey,
+          signer: privateKey,
           predictedSafe: {
             safeAccountConfig,
             safeDeploymentConfig,
@@ -433,9 +473,10 @@ class SafeService {
       throw new Error("Safe already deployed on all specified networks");
     }
 
-    // Deploy on new networks
+    // Deploy on new networks (preserve the original agentType used during creation if present)
+    const agentType = safe.userInfo?.agentType;
     const deploymentPromises = networksToExpand.map((networkKey) =>
-      this.deploySafeOnNetwork(safeId, networkKey, safe.config)
+      this.deploySafeOnNetwork(safeId, networkKey, safe.config, agentType)
     );
 
     const results = await Promise.allSettled(deploymentPromises);
