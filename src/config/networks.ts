@@ -31,7 +31,7 @@ export interface NetworkConfig {
 export type NetworkKey =
   | "ethereum"
   | "sepolia"
-  | "arbitrum"
+  | "arbitrum_one"
   | "arbitrum_sepolia"
   | "polygon"
   | "base"
@@ -85,7 +85,7 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
   },
 
   // Arbitrum
-  arbitrum: {
+  arbitrum_one: {
     name: "Arbitrum One",
     rpc: process.env.ARBITRUM_RPC || "https://arb1.arbitrum.io/rpc",
     chainId: 42161,
@@ -187,12 +187,12 @@ export const NETWORKS: Record<NetworkKey, NetworkConfig> = {
 
 // Network groups for easy filtering
 export const NETWORK_GROUPS: Record<NetworkGroupKey, NetworkKey[]> = {
-  mainnet: ["ethereum", "arbitrum", "polygon", "base", "optimism"],
+  mainnet: ["ethereum", "arbitrum_one", "polygon", "base", "optimism"],
   testnet: ["sepolia", "arbitrum_sepolia", "base_sepolia"],
-  lowFee: ["arbitrum", "polygon", "base", "optimism"],
-  highLiquidity: ["ethereum", "arbitrum", "polygon"],
+  lowFee: ["arbitrum_one", "polygon", "base", "optimism"],
+  highLiquidity: ["ethereum", "arbitrum_one", "polygon"],
   emerging: ["base"],
-  layer2: ["arbitrum", "polygon", "base", "optimism"],
+  layer2: ["arbitrum_one", "polygon", "base", "optimism"],
 };
 
 // Supported features across networks
@@ -322,11 +322,11 @@ export function isNetworkSupported(
  */
 export function getRecommendedNetworks(useCase: string): NetworkConfig[] {
   const recommendations: Record<string, NetworkKey[]> = {
-    trading: ["arbitrum", "polygon", "base"],
-    gaming: ["polygon", "arbitrum"],
-    defi: ["ethereum", "arbitrum", "optimism"],
+    trading: ["arbitrum_one", "polygon", "base"],
+    gaming: ["polygon", "arbitrum_one"],
+    defi: ["ethereum", "arbitrum_one", "optimism"],
     development: ["sepolia", "arbitrum_sepolia", "base_sepolia"],
-    low_cost: ["polygon", "arbitrum", "base"],
+    low_cost: ["polygon", "arbitrum_one", "base"],
     emerging: ["base"],
   };
 

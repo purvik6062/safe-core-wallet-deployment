@@ -19,7 +19,7 @@ const NETWORKS = {
         currency: { name: "Sepolia Ether", symbol: "SEP", decimals: 18 },
         isTestnet: true,
     },
-    arbitrum: {
+    arbitrum_one: {
         name: "Arbitrum One",
         rpc: process.env.ARBITRUM_RPC || "https://arb1.arbitrum.io/rpc",
         chainId: 42161,

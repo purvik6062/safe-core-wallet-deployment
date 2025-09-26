@@ -296,7 +296,7 @@ Content-Type: application/json
     "email": "enterprise@company.com"
   },
   "config": {
-    "networks": ["ethereum", "arbitrum", "polygon"],
+    "networks": ["ethereum", "arbitrum_one", "polygon"],
     "autoExpand": false,
     "description": "Enterprise Treasury Safe",
     "tags": ["enterprise", "treasury", "high-value"]
@@ -668,7 +668,7 @@ Content-Type: application/json
 
 ```json
 {
-  "networks": ["arbitrum", "polygon", "base", "optimism"]
+  "networks": ["arbitrum_one", "polygon", "base", "optimism"]
 }
 ```
 
