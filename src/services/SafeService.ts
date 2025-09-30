@@ -137,7 +137,7 @@ class SafeService {
     config: DeploymentConfig = {}
   ): Promise<SafeDeploymentResponse> {
     const {
-      networks = ["arbitrum_one"],
+      networks = ["arbitrum"],
       autoExpand = false,
       description = "",
       tags = [],

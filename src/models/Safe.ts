@@ -6,7 +6,7 @@ export interface ISafeDeployment {
   networkKey:
     | "ethereum"
     | "sepolia"
-    | "arbitrum_one"
+    | "arbitrum"
     | "arbitrum_sepolia"
     | "polygon"
     | "base"
